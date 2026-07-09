@@ -1,0 +1,79 @@
+// Prisma schema — this file is your database's single source of truth.
+// After editing this file, run: npm run prisma:migrate
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  READER
+}
+
+model User {
+  id        String    @id @default(cuid())
+  name      String?
+  email     String    @unique
+  password  String // bcrypt hash — never store plain text
+  role      Role      @default(READER)
+  posts     Post[]
+  comments  Comment[]
+  ratings   Rating[]
+  createdAt DateTime  @default(now())
+}
+
+model Post {
+  id        String    @id @default(cuid())
+  slug      String    @unique
+  title     String
+  excerpt   String?
+  content   String    @db.Text
+  published Boolean   @default(false)
+
+  authorId  String
+  author    User      @relation(fields: [authorId], references: [id])
+
+  comments  Comment[]
+  ratings   Rating[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([published, createdAt])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  content   String   @db.Text
+
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([postId])
+}
+
+model Rating {
+  id        String   @id @default(cuid())
+  value     Int // 1 to 5
+
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  // one rating per user per post — re-rating updates this row instead of creating a new one
+  @@unique([postId, userId])
+}
